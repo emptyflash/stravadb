@@ -1,0 +1,31 @@
+{
+  "name": "stravadb",
+  "version": "0.1.0",
+  "description": "Store arbitrary data encoded as Strava routes",
+  "type": "module",
+  "bin": {
+    "stravadb": "./dist/index.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "dev": "tsx src/index.ts",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@mapbox/polyline": "^1.2.1",
+    "commander": "^12.1.0",
+    "dotenv": "^16.4.7",
+    "open": "^10.1.0"
+  },
+  "devDependencies": {
+    "@types/mapbox__polyline": "^1.0.5",
+    "@types/node": "^22.10.0",
+    "nock": "^14.0.0",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.2",
+    "vitest": "^2.1.8"
+  }
+}
