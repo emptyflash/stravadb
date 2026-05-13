@@ -6,6 +6,8 @@ Let's get banned from Strava!
 
 stravadb encodes your bytes as GPS coordinates, packs them into a GPX file, and uploads them as a private Strava activity. Later, it fetches the route back, decodes the coordinates, and gives you your data. Free cloud storage, as long as Strava doesn't mind.
 
+![Screenshot of a strava activity](https://github.com/emptyflash/stravadb/blob/main/image.png?raw=true)
+
 ---
 
 ## How it works
@@ -72,7 +74,7 @@ npm link                # makes `stravadb` available globally
 ### 4. Authenticate
 
 ```bash
-npx tsx src/index.ts auth
+stravadb auth
 ```
 
 This opens your browser. Log in to Strava, authorize the app, and your tokens are saved to `~/.stravadb/tokens.json`.
