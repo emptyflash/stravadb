@@ -61,9 +61,12 @@ STRAVA_REDIRECT_URI=http://localhost:3000/callback
 
 ### 3. Install
 
+**Local development:**
+
 ```bash
 npm install
 npm run build
+npm link                # makes `stravadb` available globally
 ```
 
 ### 4. Authenticate
@@ -73,8 +76,6 @@ npx tsx src/index.ts auth
 ```
 
 This opens your browser. Log in to Strava, authorize the app, and your tokens are saved to `~/.stravadb/tokens.json`.
-
----
 
 ## Usage
 
