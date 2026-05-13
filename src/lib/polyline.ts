@@ -1,9 +1,9 @@
 import polyline from '@mapbox/polyline';
 
 export function encode(points: [number, number][]): string {
-  return polyline.encode(points.map(([lat, lng]) => [lat, lng]));
+  return polyline.encode(points);
 }
 
 export function decode(str: string): [number, number][] {
-  return polyline.decode(str).map(([lat, lng]) => [lat as number, lng as number]);
+  return polyline.decode(str);
 }

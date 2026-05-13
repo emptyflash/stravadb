@@ -17,7 +17,7 @@ export function generateGpx(opts: GpxOptions): string {
     '    <trkseg>',
   ];
 
-  const baseTime = new Date('2026-01-01T00:00:00Z');
+  const baseTime = new Date();
   for (let i = 0; i < opts.points.length; i++) {
     const [lat, lng] = opts.points[i]!;
     const ts = opts.timestamps[i] ?? i;
