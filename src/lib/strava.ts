@@ -48,6 +48,15 @@ async function stravaFetch(
 
   if (!res.ok) {
     const body = await res.text().catch(() => '');
+    if (res.status === 429) {
+      const retryAfter = parseInt(res.headers.get('Retry-After') || '', 10) || 900;
+      throw new StravadbError(
+        `Rate limit exceeded. Next window in ${formatSeconds(retryAfter)}.`,
+        'RATE_LIMITED',
+        429,
+        retryAfter,
+      );
+    }
     throw new StravadbError(
       `Strava API error: ${res.status} ${body}`,
       'API_ERROR',
@@ -99,6 +108,13 @@ async function pollUpload(uploadId: number, maxAttempts = 60): Promise<StravaAct
     const upload = (await res.json()) as StravaUpload;
 
     if (upload.error) {
+      const dupMatch = upload.error.match(/\/activities\/(\d+)/);
+      if (dupMatch) {
+        const existingId = parseInt(dupMatch[1]!, 10);
+        console.error(`  (activity ${existingId} already exists — reusing)`);
+        const actRes = await stravaFetch(`/activities/${existingId}`);
+        return actRes.json() as Promise<StravaActivity>;
+      }
       throw new StravadbError(
         `Upload processing error: ${upload.error}`,
         'UPLOAD_ERROR',
@@ -141,6 +157,14 @@ export async function getActivity(activityId: number): Promise<StravaActivity> {
 
 export async function deleteActivity(activityId: number): Promise<void> {
   await stravaFetch(`/activities/${activityId}`, { method: 'DELETE' });
+}
+
+function formatSeconds(s: number): string {
+  if (s < 60) return `${s}s`;
+  const m = Math.floor(s / 60);
+  const sec = s % 60;
+  if (sec === 0) return `${m}m`;
+  return `${m}m ${sec}s`;
 }
 
 export async function getActivityStream(activityId: number): Promise<[number, number][]> {

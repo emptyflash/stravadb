@@ -7,7 +7,7 @@ import { StravaTokens, StravadbError } from '../types.js';
 
 dotenv.config();
 
-const CONFIG_DIR = path.join(process.env.HOME || '/tmp', '.stravadb');
+export const CONFIG_DIR = path.join(process.env.HOME || '/tmp', '.stravadb');
 const TOKENS_FILE = path.join(CONFIG_DIR, 'tokens.json');
 
 function ensureConfigDir(): void {

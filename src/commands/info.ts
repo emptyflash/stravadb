@@ -1,10 +1,14 @@
 import { StravadbError, RouteMetadata } from '../types.js';
 import { listAllActivities, getActivity } from '../lib/strava.js';
+import { encodeKey } from '../lib/keys.js';
 
 export async function infoCommand(key: string): Promise<void> {
   const allActivities = await listAllActivities();
+  const safeKey = encodeKey(key);
+  const rawPattern = key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const encodedPattern = safeKey.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   const chunkPattern = new RegExp(
-    `^stravadb:${key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?::\\d{3})?$`,
+    `^stravadb:(?:${rawPattern}|${encodedPattern})(?::\\d{3})?$`,
   );
 
   const matching = allActivities

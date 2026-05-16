@@ -5,6 +5,7 @@ export interface GpxOptions {
   description: string;
   points: [number, number][];
   timestamps: number[];
+  baseDate?: Date;
 }
 
 export function generateGpx(opts: GpxOptions): string {

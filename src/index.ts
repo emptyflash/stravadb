@@ -6,6 +6,7 @@ import { getCommand } from './commands/get.js';
 import { listCommand } from './commands/list.js';
 import { deleteCommand } from './commands/delete.js';
 import { infoCommand } from './commands/info.js';
+import { serveCommand } from './commands/serve.js';
 
 const program = new Command();
 
@@ -87,6 +88,20 @@ program
   .action(async (key) => {
     try {
       await infoCommand(key);
+    } catch (err) {
+      console.error((err as Error).message);
+      process.exit(1);
+    }
+  });
+
+program
+  .command('serve')
+  .description('Start a local HTTP server to browse stored files')
+  .option('-p, --port <port>', 'Port to listen on', '8080')
+  .option('--no-cache', 'Always fetch from Strava, skip local cache')
+  .action(async (opts) => {
+    try {
+      await serveCommand(parseInt(opts.port, 10), !opts.cache);
     } catch (err) {
       console.error((err as Error).message);
       process.exit(1);

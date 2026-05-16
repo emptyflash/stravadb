@@ -3,6 +3,7 @@ import * as path from 'node:path';
 import { RouteMetadata, StravadbError } from '../types.js';
 import { listAllActivities, getActivity, getActivityStream } from '../lib/strava.js';
 import { unchunkData } from '../lib/chunk.js';
+import { encodeKey, decodeKey } from '../lib/keys.js';
 
 interface ChunkInfo {
   index: number;
@@ -11,8 +12,11 @@ interface ChunkInfo {
 
 async function findActivityIds(key: string): Promise<ChunkInfo[]> {
   const allActivities = await listAllActivities();
+  const safeKey = encodeKey(key);
+  const rawPattern = key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const encodedPattern = safeKey.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   const chunkPattern = new RegExp(
-    `^stravadb:${key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?::\\d{3})?$`,
+    `^stravadb:(?:${rawPattern}|${encodedPattern})(?::\\d{3})?$`,
   );
 
   const matches: Map<string, ChunkInfo> = new Map();
@@ -34,7 +38,9 @@ async function findActivityIds(key: string): Promise<ChunkInfo[]> {
   return [...matches.values()].sort((a, b) => a.index - b.index);
 }
 
-export async function getCommand(key: string, outFile?: string): Promise<void> {
+export async function retrieveKey(
+  key: string,
+): Promise<{ data: Uint8Array; metadata: RouteMetadata }> {
   const chunks = await findActivityIds(key);
 
   if (chunks.length === 0) {
@@ -43,6 +49,7 @@ export async function getCommand(key: string, outFile?: string): Promise<void> {
 
   const decodedChunks: Uint8Array[] = [];
   let totalSize = 0;
+  let metadata: RouteMetadata | null = null;
 
   for (const chunk of chunks) {
     const points = await getActivityStream(chunk.activityId);
@@ -64,6 +71,22 @@ export async function getCommand(key: string, outFile?: string): Promise<void> {
 
     decodedChunks.push(decoded);
     totalSize += decoded.length;
+
+    if (!metadata) {
+      const detail = await getActivity(chunk.activityId);
+      try {
+        metadata = JSON.parse(detail.description || '{}') as RouteMetadata;
+      } catch {
+        metadata = {
+          filename: 'unknown',
+          mime: 'application/octet-stream',
+          encoding_ver: 1,
+          chunk_total: chunks.length,
+          size: totalSize,
+          chunk_index: chunk.index,
+        };
+      }
+    }
   }
 
   const result = new Uint8Array(totalSize);
@@ -73,11 +96,17 @@ export async function getCommand(key: string, outFile?: string): Promise<void> {
     offset += chunk.length;
   }
 
+  return { data: result, metadata: metadata! };
+}
+
+export async function getCommand(key: string, outFile?: string): Promise<void> {
+  const { data } = await retrieveKey(key);
+
   if (outFile) {
     fs.mkdirSync(path.dirname(path.resolve(outFile)), { recursive: true });
-    fs.writeFileSync(outFile, result);
-    console.error(`Written ${result.length} bytes to ${outFile}`);
+    fs.writeFileSync(outFile, data);
+    console.error(`Written ${data.length} bytes to ${outFile}`);
   } else {
-    process.stdout.write(result);
+    process.stdout.write(data);
   }
 }

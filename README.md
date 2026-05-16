@@ -99,6 +99,11 @@ stravadb info mykey
 
 # Find activities to delete manually
 stravadb delete mykey
+
+# Start a local HTTP server to browse stored files
+stravadb serve
+stravadb serve --port 3000
+stravadb serve --no-cache          # always fetch from Strava, skip disk cache
 ```
 
 ```
@@ -112,11 +117,47 @@ $ stravadb get secrets
 {"openai": "sk-...", "github": "ghp_..."}
 ```
 
+### File server
+
+`stravadb serve` starts a local HTTP server that lets you browse stored files in a browser:
+
+```
+$ stravadb serve
+Loading metadata from Strava...
+Loading metadata for secrets...   secrets: 2048 bytes
+Loading metadata for notes...     notes: 732 bytes
+
+stravadb server running at http://localhost:8080
+```
+
+Open `http://localhost:8080` in your browser. The index page lists all stored files with their metadata. Files are **fetched lazily** — the first time you click a key, it downloads from Strava and caches it to `~/.stravadb/cache/`. Subsequent requests serve from this local cache. A ✓ or — in the **Local** column tells you whether the file's cached copy is available.
+
+| URL | What it does |
+|---|---|
+| `GET /` | Index page listing all keys, filenames, sizes, MIME types, and cache status |
+| `GET /:key` | Serve file inline. HTML renders in-browser; text/images display inline; binaries download |
+| `GET /:key?download` | Force download as attachment (ignores MIME type) |
+| `GET /refresh` | Re-fetch metadata from Strava (does not re-download file data) |
+
+Use `--no-cache` to always fetch from Strava on every request:
+
+```
+stravadb serve --no-cache
+```
+
+With `--no-cache`, no local cache is used — every `GET /:key` downloads the file from Strava fresh. Useful for debugging or when you want the latest data without restarts.
+
 ---
 
 ## Rate limits
 
 Strava allows **100 requests per 15 minutes** per user. A put or get operation typically uses 2-3 requests (list, upload/stream, detail). Keep your usage reasonable or you'll get rate-limited. Chunking large files across many activities will burn through your quota fast.
+
+### Auto-retry & resume
+
+When `put` hits a 429 rate limit, it **saves progress** to `~/.stravadb/resume/` and **waits for the rate limit window to reset** (15 minutes by default, or whatever `Retry-After` says). Then it retries automatically from where it left off.
+
+If the process is killed during the wait, progress is preserved on disk. Running `stravadb put` again with the same key picks up from where it left off — no data lost.
 
 ---
 
@@ -138,6 +179,18 @@ Uploading GPS points scattered across the entire globe triggers Strava's route p
 
 ### Problem 5: You can't delete with the default scopes
 Strava requires additional permissions to delete activities via the API. The `delete` command lists the activities you need to remove manually from [strava.com](https://www.strava.com/athlete/training). The `put` command handles updates by uploading new activities and deduplicating on retrieval.
+
+### Problem 6: Activities get flagged for unrealistic speed
+The encoded GPS coordinates can produce displacements of up to ~333 meters between consecutive points. With 10-second intervals, that's 120 km/h — instant flag. Fix: 60-second intervals (~9 min/mile pace) and points clustered around a small baseline area.
+
+### Problem 7: Too many uploads on one day
+All activities landing on the same date triggers Strava's daily upload quota. Fix: each key gets a deterministic day in 2025 based on `hash(key) % 365`, and chunk siblings are spaced 7 days apart. Error recovery uses auto-retry with resume state on disk.
+
+### Problem 8: Dots and slashes in keys get stripped
+Strava strips `.` and interprets `/` in activity names. Keys like `data/image.png` become `data/` on the server. Fix: keys are URL-encoded (`data%2Fimage%2Epng`) in activity names, decoded transparently on read. Both old raw and new encoded formats are matched during retrieval.
+
+### Problem 9: Duplicate uploads break resume
+On resume after a rate limit, re-uploading a chunk that already succeeded triggers a "duplicate" error. Fix: the upload poller recognizes the duplicate message, extracts the existing activity ID from the error HTML, and returns it as if the upload just succeeded — resume continues cleanly.
 
 ---
 
@@ -168,15 +221,18 @@ stravadb/
 │   │   ├── get.ts            # Download → decode
 │   │   ├── list.ts           # List keys
 │   │   ├── delete.ts         # Show activities to remove
-│   │   └── info.ts           # Metadata display
+│   │   ├── info.ts           # Metadata display
+│   │   └── serve.ts          # HTTP file server
 │   └── lib/
 │       ├── encoder.ts        # Bytes ↔ GPS offsets
 │       ├── chunk.ts          # Header + chunking logic
 │       ├── gpx.ts            # GPX XML generator
 │       ├── polyline.ts       # Google polyline wrapper
+│       ├── keys.ts           # Key encoding for Strava-safe names
+│       ├── resume.ts         # Upload resume state (auto-retry on rate limit)
 │       ├── auth.ts           # Token management
 │       └── strava.ts         # Strava API client
-├── tests/                    # 73 tests, 8 test files
+├── tests/                    # 94 tests, 10 test files
 ├── package.json
 ├── tsconfig.json
 └── vitest.config.ts

@@ -1,5 +1,6 @@
 import { listAllActivities, getActivity } from '../lib/strava.js';
 import { RouteMetadata } from '../types.js';
+import { decodeKey } from '../lib/keys.js';
 
 export async function listCommand(): Promise<void> {
   const allActivities = await listAllActivities();
@@ -16,9 +17,10 @@ export async function listCommand(): Promise<void> {
 
   for (const act of stravadbActivities) {
     const nameWithoutPrefix = act.name.slice('stravadb:'.length);
-    const key = nameWithoutPrefix.includes(':')
+    const rawKey = nameWithoutPrefix.includes(':')
       ? nameWithoutPrefix.slice(0, nameWithoutPrefix.lastIndexOf(':'))
       : nameWithoutPrefix;
+    const key = decodeKey(rawKey);
 
     const existing = keyActivityMap.get(key);
     if (!existing || act.id > existing) {

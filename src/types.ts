@@ -37,11 +37,21 @@ export interface RouteMetadata {
   chunk_index: number;
 }
 
+export interface ResumeState {
+  key: string;
+  rawData: string;
+  filename: string;
+  mime: string;
+  totalChunks: number;
+  nextChunk: number;
+}
+
 export class StravadbError extends Error {
   constructor(
     message: string,
     public code: string,
     public status?: number,
+    public retryAfter?: number,
   ) {
     super(message);
     this.name = 'StravadbError';
